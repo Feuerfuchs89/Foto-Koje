@@ -89,7 +89,7 @@ dialog::backdrop{background:#0008}
 </main>
 <dialog id="dlg">
  <h3 style="margin:0">Speichern</h3>
- <small style="color:var(--mut)">Den Ordner wählst du im nächsten Schritt (Chrome/Edge). Sonst landet die Datei im Download-Ordner.</small>
+ <small style="color:var(--mut)">Ordner und Dateiname wählst du im nächsten Fenster (Chrome, Edge, Opera). Firefox und Safari speichern in den Download-Ordner – dort im Browser „Immer nachfragen“ einschalten.</small>
  <button class="sv" data-k="orig">Originalformat<small>PNG bleibt PNG, JPG bleibt JPG</small></button>
  <button class="sv" data-k="png">PNG<small>verlustfrei, mit Transparenz</small></button>
  <button class="sv" data-k="jpg">JPG<small>klein und überall lesbar</small></button>
@@ -221,15 +221,25 @@ addEventListener("keydown",e=>{if(e.ctrlKey&&e.key==="s"){e.preventDefault();if(
 $("bu").onclick=undo;$("br").onclick=redo;$("reset").onclick=()=>base&&resetAll();$("apply").onclick=()=>{if(base){push(process(base,p,1));resetAll();toast("Angewendet")}};
 
 // ---- Speichern ----
-async function write(blob,name,ext,mime){
- if(window.showSaveFilePicker){try{const h=await showSaveFilePicker({suggestedName:name,types:[{description:ext.toUpperCase(),accept:{[mime]:["."+ext]}}]});const w=await h.createWritable();await w.write(blob);await w.close();return toast("Gespeichert: "+h.name)}catch(e){if(e.name==="AbortError")return}}
- const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast("Heruntergeladen: "+name)}
-async function save(k){const M={png:"image/png",jpg:"image/jpeg",webp:"image/webp"};
- if(k==="raw")return write(file,file.name,file.name.split(".").pop().toLowerCase(),"application/octet-stream");
+async function pickHandle(name,ext,mime){
+ if(!window.showSaveFilePicker)return null;
+ try{return await showSaveFilePicker({suggestedName:name,types:[{description:ext.toUpperCase(),accept:{[mime]:["."+ext]}}]})}
+ catch(e){return e.name==="AbortError"?false:null}}
+async function deliver(h,blob,name){
+ if(h){try{const w=await h.createWritable();await w.write(blob);await w.close();return toast("✓ Gespeichert: "+h.name)}catch(e){toast("Speichern fehlgeschlagen: "+e.message)}}
+ try{const d=window.claude&&await claude.use("downloads");if(d){await d.save({filename:name,data:blob});return toast("✓ Gespeichert: "+name)}}
+ catch(e){if(e&&e.code)return toast(e.code==="declined"?"Abgebrochen":"Speichern hier nicht möglich ("+e.code+")")}
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),30000);
+ toast("Im Download-Ordner abgelegt: "+name+" (Ordnerwahl: Chrome/Edge)")}
+async function save(k){
+ const M={png:"image/png",jpg:"image/jpeg",webp:"image/webp"},stem=file.name.replace(/\.[^.]+$/,"");
+ if(k==="raw"){const h=await pickHandle(file.name,file.name.split(".").pop().toLowerCase(),"application/octet-stream");if(h===false)return;return deliver(h,file,file.name)}
  let mime=M[k];if(k==="orig")mime=!isRaw&&Object.values(M).includes(file.type)?file.type:"image/png";
- const ext=Object.keys(M).find(x=>M[x]===mime);let out=process(base,p,1);
+ const ext=Object.keys(M).find(x=>M[x]===mime),name=stem+"_bearbeitet."+ext,h=await pickHandle(name,ext,mime);
+ if(h===false)return;toast("Speichere …");let out=process(base,p,1);
  if(mime==="image/jpeg"){const w=mk(out.width,out.height),x=w.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w.width,w.height);x.drawImage(out,0,0);out=w}
- const blob=await new Promise(r=>out.toBlob(r,mime,$("q").value/100));write(blob,file.name.replace(/\.[^.]+$/,"")+"_bearbeitet."+ext,ext,mime)}
+ const blob=await new Promise(r=>out.toBlob(r,mime,$("q").value/100));
+ if(!blob)return toast("Bild konnte nicht erzeugt werden");deliver(h,blob,name)}
 $("bs").onclick=()=>{$("svraw").style.display=isRaw?"block":"none";dlg.showModal()};
 $("q").oninput=e=>$("qo").textContent=e.target.value;
 dlg.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{dlg.close();save(b.dataset.k)});
