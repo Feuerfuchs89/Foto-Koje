@@ -45,7 +45,7 @@ aside{width:340px;display:flex;flex-direction:column;border-left:1px solid var(-
 .tl{padding:12px 4px;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px}
 .tl b{font-size:20px;font-weight:400}
 label{display:flex;justify-content:space-between;font-size:13px;margin-top:12px;color:var(--mut)}
-input[type=range]{width:100%;accent-color:var(--acc)}
+input[type=range]{width:100%;accent-color:var(--acc);touch-action:pan-y}
 .foot{padding:10px 12px;border-top:1px solid var(--line);display:flex;gap:8px}
 .foot button{flex:1}
 .note{font-size:12px;color:var(--mut);padding:0 12px 10px}
@@ -163,7 +163,7 @@ FLS.forEach(([id,e,n])=>{const b=document.createElement("button");b.className="f
  b.onclick=()=>{if(!base)return toast("Erst ein Bild öffnen");p.fl=id==="none"?null:id;pick(id);render()};$("flg").append(b)});
 $("fa").oninput=e=>{p.fa=+e.target.value;$("fo").textContent=p.fa;schedule()};
 SL.forEach(([k,n,lo,hi,st])=>{p[k]=0;$("sl").insertAdjacentHTML("beforeend",`<label>${n}<output id="o-${k}">0</output></label><input type="range" id="r-${k}" min="${lo}" max="${hi}" step="${st}" value="0">`);
- $("r-"+k).oninput=e=>{p[k]=+e.target.value;$("o-"+k).textContent=p[k];schedule()};$("r-"+k).ondblclick=e=>{e.target.value=0;e.target.oninput(e)}});
+ $("r-"+k).oninput=e=>{p[k]=+e.target.value;$("o-"+k).textContent=p[k];schedule()};$("r-"+k).ondblclick=e=>{if(near){e.target.value=0;e.target.oninput(e)}}});
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tabs button,.pane").forEach(e=>e.classList.remove("on"));b.classList.add("on");$(b.dataset.t).classList.add("on")});
 
 // ---- Eigene Looks ----
@@ -243,6 +243,11 @@ async function save(k){
 $("bs").onclick=()=>{$("svraw").style.display=isRaw?"block":"none";dlg.showModal()};
 $("q").oninput=e=>$("qo").textContent=e.target.value;
 dlg.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{dlg.close();save(b.dataset.k)});
+// Regler ändern sich nur, wenn der Knopf selbst gezogen wird – Antippen der Leiste bewirkt nichts
+let near=false,blk=false,old=0;
+document.addEventListener("pointerdown",e=>{const t=e.target;if(!(t instanceof HTMLInputElement&&t.type==="range"))return;const r=t.getBoundingClientRect(),f=(t.value-t.min)/(t.max-t.min);near=Math.abs(e.clientX-(r.left+10+f*(r.width-20)))<=26;blk=!near;old=t.value},true);
+["pointerup","pointercancel"].forEach(ev=>document.addEventListener(ev,()=>blk=false,true));
+document.addEventListener("input",e=>{if(blk&&e.target.type==="range"){e.stopImmediatePropagation();e.target.value=old}},true);
 try{navigator.serviceWorker&&navigator.serviceWorker.register("sw.js").catch(()=>{})}catch{}
 </script>
 </body>
