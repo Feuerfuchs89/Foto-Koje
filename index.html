@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#1c1e24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Foto Koje">
+<title>Foto Koje</title>
+<link rel="icon" href="icon.png"><link rel="apple-touch-icon" href="icon.png"><link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{--bg:#1c1e24;--card:#272a33;--line:#363a46;--fg:#eceef3;--mut:#9aa0ad;--acc:#ff9f1c;--on:#1c1e24;color-scheme:light dark}
+@media(prefers-color-scheme:light){:root:not([data-theme]){--bg:#f4f5f8;--card:#fff;--line:#dcdfe6;--fg:#1c1e24;--mut:#6a7080}}
+:root[data-theme=light]{--bg:#f4f5f8;--card:#fff;--line:#dcdfe6;--fg:#1c1e24;--mut:#6a7080;color-scheme:light}
+:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,-apple-system,sans-serif}
+body{display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+header{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+header img{width:30px;height:30px;border-radius:8px}
+header h1{font-size:17px;margin:0;flex:1}
+button{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--acc)}
+button:disabled{opacity:.4;cursor:default}
+button.p{background:var(--acc);border-color:var(--acc);color:var(--on);font-weight:600}
+main{flex:1;display:flex;min-height:0}
+#stage{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:12px;min-width:0}
+#view{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 6px 30px #0006;touch-action:none;display:none}
+#hint{text-align:center;max-width:380px;padding:28px;border:2px dashed var(--line);border-radius:18px}
+#hint img{width:88px;border-radius:20px}
+#hint p{color:var(--mut);margin:6px 0 16px}
+#cropbar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:none;gap:6px;flex-wrap:wrap;justify-content:center;background:var(--card);border:1px solid var(--line);padding:8px;border-radius:14px;max-width:96%}
+#cropbar button{padding:6px 10px}
+aside{width:340px;display:flex;flex-direction:column;border-left:1px solid var(--line);min-height:0}
+.tabs{display:flex}
+.tabs button{flex:1;border:0;border-radius:0;border-bottom:2px solid transparent;background:none}
+.tabs button.on{border-color:var(--acc);color:var(--acc)}
+.pane{display:none;flex:1;overflow:auto;padding:12px}
+.pane.on{display:block}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fc{padding:4px;text-align:center;font-size:12px}
+.fc canvas{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;display:block;margin-bottom:3px;background:var(--line)}
+.fc.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.tl{padding:12px 4px;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tl b{font-size:20px;font-weight:400}
+label{display:flex;justify-content:space-between;font-size:13px;margin-top:12px;color:var(--mut)}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.foot{padding:10px 12px;border-top:1px solid var(--line);display:flex;gap:8px}
+.foot button{flex:1}
+.note{font-size:12px;color:var(--mut);padding:0 12px 10px}
+dialog{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:16px;max-width:380px;width:92%}
+dialog::backdrop{background:#0008}
+.sv{display:block;width:100%;text-align:left;margin-top:8px}
+.sv small{display:block;color:var(--mut)}
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,30px);background:var(--card);border:1px solid var(--acc);padding:9px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;max-width:90%;z-index:9}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media(max-width:560px){header h1{display:none}header{justify-content:flex-end}}
+@media(max-width:800px){main{flex-direction:column}aside{width:100%;height:46%;border-left:0;border-top:1px solid var(--line)}.grid{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<header>
+ <img src="icon.png" alt=""><h1>Foto Koje</h1>
+ <button id="bt" title="Design: Auto / Dunkel / Hell">🌓</button>
+ <button id="bu" title="Rückgängig (Strg+Z)" disabled>↶</button>
+ <button id="br" title="Wiederholen (Strg+Y)" disabled>↷</button>
+ <button id="bc" title="Vorher/Nachher-Balken" disabled>◐</button>
+ <button class="p" id="open">Öffnen</button>
+ <button class="p" id="bs" title="Speichern als … (Strg+S)" disabled>💾 Speichern als …</button>
+ <input type="file" id="file" hidden><input type="file" id="bf" multiple hidden>
+</header>
+<main>
+ <div id="stage">
+  <div id="hint"><img src="icon.png" alt=""><h2 style="margin:10px 0 0">Bild hierher ziehen</h2>
+   <p>Fotos oder RAW (CR3, C-RAW, NEF, ARW, DNG …).<br>Alles bleibt auf diesem Gerät.</p><button class="p" id="open2">Datei wählen</button></div>
+  <canvas id="view"></canvas>
+  <div id="cropbar"></div>
+ </div>
+ <aside>
+  <div class="tabs"><button class="on" data-t="fl">✨ Filter</button><button data-t="ad">🎚️ Anpassen</button><button data-t="tl">✂️ Bearbeiten</button></div>
+  <div class="pane on" id="fl"><div class="grid" id="flg"></div><label style="margin-top:16px">⭐ Meine Looks <small>(Rechtsklick löscht)</small></label><div class="grid" id="pg"></div><button id="psv" style="width:100%;margin-top:8px">⭐ Aktuellen Look speichern</button>
+   <label>Stärke <output id="fo">100</output></label><input type="range" id="fa" min="0" max="100" value="100"></div>
+  <div class="pane" id="ad"><div id="sl"></div></div>
+  <div class="pane" id="tl"><div class="grid" id="tg"></div></div>
+  <div class="note">Vorschau sofort – „Anwenden“ macht sie fest. Speichern übernimmt sie auch so.</div>
+  <div class="foot"><button id="reset">Zurücksetzen</button><button class="p" id="apply">✓ Anwenden</button></div>
+ </aside>
+</main>
+<dialog id="dlg">
+ <h3 style="margin:0">Speichern</h3>
+ <small style="color:var(--mut)">Den Ordner wählst du im nächsten Schritt (Chrome/Edge). Sonst landet die Datei im Download-Ordner.</small>
+ <button class="sv" data-k="orig">Originalformat<small>PNG bleibt PNG, JPG bleibt JPG</small></button>
+ <button class="sv" data-k="png">PNG<small>verlustfrei, mit Transparenz</small></button>
+ <button class="sv" data-k="jpg">JPG<small>klein und überall lesbar</small></button>
+ <label>JPG-Qualität <output id="qo">92</output></label><input type="range" id="q" min="50" max="100" value="92">
+ <button class="sv" data-k="webp">WebP<small>modern und sehr klein</small></button>
+ <button class="sv" data-k="raw" id="svraw">Original-RAW kopieren<small>unveränderte Kameradatei sichern</small></button>
+ <button class="sv" onclick="dlg.close()" style="text-align:center">Abbrechen</button>
+</dialog>
+<div id="toast"></div>
+<script>
+const RAW=new Set("cr2 cr3 crw nef nrw arw srf sr2 dng orf rw2 raf pef srw 3fr erf kdc mrw".split(" "));
+const SL=[["ev","Belichtung",-3,3,.1],["br","Helligkeit",-100,100,1],["co","Kontrast",-100,100,1],["sa","Sättigung",-100,100,1],["wa","Wärme",-100,100,1],["sh","Schatten",-100,100,1],["hi","Lichter",-100,100,1],["sp","Schärfe",0,100,1],["bl","Weichzeichner",0,10,.1]];
+const FLS=[["none","🖼️","Original",null],["auto","✨","Auto",{auto:1}],["vivid","🌈","Lebendig",{f:"saturate(1.5) contrast(1.1)"}],
+["warm","☀️","Warm",{f:"sepia(.2) saturate(1.25) brightness(1.04)",tint:["#ff9a3c",.18]}],["cool","❄️","Kalt",{f:"saturate(.95) hue-rotate(-8deg)",tint:["#3c8cff",.2]}],
+["vintage","📻","Vintage",{f:"sepia(.5) contrast(.92) brightness(1.06) saturate(.9)",vig:.45,grain:12}],["film","🎞️","Film",{f:"contrast(1.15) saturate(.8)",tint:["#00a6a6",.1],grain:18}],
+["bw","🖤","S/W",{f:"grayscale(1) contrast(1.15)"}],["noir","🎬","Noir",{f:"grayscale(1) contrast(1.6) brightness(.9)",vig:.6,grain:10}],
+["pastel","🍬","Pastell",{f:"brightness(1.12) contrast(.85) saturate(.75)",tint:["#ffc8e6",.18]}],["drama","🌋","Drama",{f:"contrast(1.4) saturate(1.2) brightness(.95)",vig:.5}],
+["neon","🌃","Neon",{f:"saturate(2) contrast(1.2) hue-rotate(-20deg)",tint:["#a020ff",.2]}],["dream","💭","Traum",{f:"brightness(1.05) saturate(1.1)",glow:1}],
+["sepia","🟤","Sepia",{f:"sepia(1) contrast(1.05)"}],["vig","🔦","Vignette",{vig:.7}]];
+const FL=Object.fromEntries(FLS.map(f=>[f[0],f[3]]));
+const $=id=>document.getElementById(id),view=$("view"),vctx=view.getContext("2d"),dlg=$("dlg");
+const mk=(w,h)=>{const c=document.createElement("canvas");c.width=w;c.height=h;return c};
+let z=1,tx=0,ty=0,cmp=null,pan=null,base,prev,pf=1,hist=[],hp=-1,file,isRaw=false,cache,raf=0,crop=null,p={fl:null,fa:100};
+function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("on"),3200)}
+
+// ---- Design (Auto / Dunkel / Hell) ----
+const TH=[["auto","🌓","Automatisch"],["dark","🌙","Dunkel"],["light","☀️","Hell"]];
+let th=0;try{th=Math.max(0,TH.findIndex(t=>t[0]===localStorage.getItem("pf-theme")))}catch{}
+function applyTheme(){const [m,e]=TH[th];m==="auto"?document.documentElement.removeAttribute("data-theme"):document.documentElement.dataset.theme=m;$("bt").textContent=e;
+ document.querySelector('meta[name=theme-color]').content=getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()||"#1c1e24"}
+$("bt").onclick=()=>{th=(th+1)%3;try{localStorage.setItem("pf-theme",TH[th][0])}catch{}applyTheme();toast("Design: "+TH[th][2])};
+applyTheme();
+
+// ---- Bildverarbeitung ----
+function auto(src){const c=mk(src.width,src.height),x=c.getContext("2d");x.drawImage(src,0,0);const d=x.getImageData(0,0,c.width,c.height),a=d.data,n=a.length/4,L=[];
+ for(let ch=0;ch<3;ch++){const h=new Uint32Array(256);for(let i=ch;i<a.length;i+=4)h[a[i]]++;let s=0,lo=0,hi=255;while(lo<255&&(s+=h[lo])<n*.005)lo++;s=0;while(hi>0&&(s+=h[hi])<n*.005)hi--;L[ch]=v=>Math.max(0,Math.min(255,(v-lo)*255/Math.max(1,hi-lo)))}
+ for(let i=0;i<a.length;i+=4)for(let ch=0;ch<3;ch++)a[i+ch]=L[ch](a[i+ch]);x.putImageData(d,0,0);return c}
+function look(c,f,amt){const w=c.width,h=c.height,o=mk(w,h),x=o.getContext("2d");
+ if(f.auto)x.drawImage(auto(c),0,0);else{x.filter=f.f||"none";x.drawImage(c,0,0);x.filter="none"}
+ if(f.glow){const g=mk(w,h),gx=g.getContext("2d");gx.filter=`blur(${w*.012}px) brightness(1.2)`;gx.drawImage(c,0,0);x.globalCompositeOperation="screen";x.globalAlpha=.55;x.drawImage(g,0,0)}
+ if(f.tint){x.globalCompositeOperation="soft-light";x.globalAlpha=Math.min(1,f.tint[1]*3);x.fillStyle=f.tint[0];x.fillRect(0,0,w,h)}
+ x.globalCompositeOperation="source-over";x.globalAlpha=1;
+ if(f.vig){const g=x.createRadialGradient(w/2,h/2,Math.min(w,h)*.3,w/2,h/2,Math.hypot(w,h)/2);g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,`rgba(0,0,0,${f.vig})`);x.fillStyle=g;x.fillRect(0,0,w,h)}
+ if(f.grain){const d=x.getImageData(0,0,w,h),a=d.data;let s=7;for(let i=0;i<a.length;i+=4){s=s*16807%2147483647;const n=(s/2147483647-.5)*f.grain*2;a[i]+=n;a[i+1]+=n;a[i+2]+=n}x.putImageData(d,0,0)}
+ const r=mk(w,h),rx=r.getContext("2d");rx.drawImage(c,0,0);rx.globalAlpha=amt;rx.drawImage(o,0,0);return r}
+function sharp(c,k){const x=c.getContext("2d"),w=c.width,h=c.height,s=x.getImageData(0,0,w,h).data,o=new Uint8ClampedArray(s),r=w*4;for(let y=1;y<h-1;y++)for(let i=y*r+4,e=y*r+r-4;i<e;i++)if(i%4<3)o[i]=s[i]+k*(4*s[i]-s[i-4]-s[i+4]-s[i-r]-s[i+r]);x.putImageData(new ImageData(o,w,h),0,0)}
+function process(src,q,k){const c=mk(src.width,src.height),x=c.getContext("2d");
+ x.filter=`brightness(${2**q.ev*(1+q.br/100)}) contrast(${1+q.co/100}) saturate(${1+q.sa/100})`+(q.bl?` blur(${q.bl*k}px)`:"");x.drawImage(src,0,0);x.filter="none";
+ if(q.wa||q.sh||q.hi){const d=x.getImageData(0,0,c.width,c.height),a=d.data,f=q.wa/100*.3,S=q.sh*.6,H=q.hi*.6;for(let i=0;i<a.length;i+=4){const l=(a[i]*.3+a[i+1]*.59+a[i+2]*.11)/255,m=S*(1-l)**2+H*l*l;a[i]=(a[i]+m)*(1+f);a[i+1]+=m;a[i+2]=(a[i+2]+m)*(1-f)}x.putImageData(d,0,0)}
+ if(q.sp)sharp(c,q.sp/100);
+ return q.fl?look(c,FL[q.fl],q.fa/100):c}
+
+// ---- Zustand / Anzeige ----
+function setBase(c){base=c;pf=Math.min(1,1600/Math.max(c.width,c.height));
+ if(pf===1)prev=c;else{prev=mk(Math.round(c.width*pf),Math.round(c.height*pf));const x=prev.getContext("2d");x.imageSmoothingQuality="high";x.drawImage(c,0,0,prev.width,prev.height)}
+ $("hint").style.display="none";view.style.display="block";thumbs();render()}
+function thumbs(){const t=mk(96,Math.max(1,Math.round(96*prev.height/prev.width)));t.getContext("2d").drawImage(prev,0,0,t.width,t.height);
+ document.querySelectorAll("#flg canvas").forEach(c=>{const f=FL[c.dataset.id],r=f?look(t,f,1):t;c.width=r.width;c.height=r.height;c.getContext("2d").drawImage(r,0,0)})}
+function push(c){hist=hist.slice(0,hp+1).concat(c).slice(-12);hp=hist.length-1;setBase(c)}
+const undo=()=>{if(hp>0)setBase(hist[--hp])},redo=()=>{if(hp<hist.length-1)setBase(hist[++hp])};
+function schedule(){if(!raf)raf=requestAnimationFrame(()=>{raf=0;render()})}
+function render(){if(!prev)return;cache=process(prev,p,pf);view.width=cache.width;view.height=cache.height;drawSel();
+ $("bu").disabled=hp<1;$("br").disabled=hp>=hist.length-1;$("bs").disabled=$("bc").disabled=false}
+function drawSel(){vctx.drawImage(cache,0,0);if(cmp!=null){const X=cmp*view.width;vctx.drawImage(prev,0,0,X,view.height,0,0,X,view.height);vctx.fillStyle="#fff";vctx.fillRect(X-1.5,0,3,view.height)}const s=crop&&crop.sel;if(s){vctx.save();vctx.fillStyle="#0007";vctx.beginPath();vctx.rect(0,0,view.width,view.height);vctx.rect(s[0],s[1],s[2]-s[0],s[3]-s[1]);vctx.fill("evenodd");vctx.restore();
+ vctx.strokeStyle="#ff9f1c";vctx.lineWidth=Math.max(2,view.width/400);vctx.strokeRect(s[0],s[1],s[2]-s[0],s[3]-s[1])}}
+function resetAll(){SL.forEach(([k])=>{p[k]=0;$("r-"+k).value=0;$("o-"+k).textContent=0});p.fl=null;p.fa=100;$("fa").value=100;$("fo").textContent=100;pick("none");schedule()}
+function pick(id){document.querySelectorAll(".fc").forEach(b=>b.classList.toggle("on",b.dataset.id===id))}
+
+// ---- Oberfläche aufbauen ----
+FLS.forEach(([id,e,n])=>{const b=document.createElement("button");b.className="fc"+(id==="none"?" on":"");b.dataset.id=id;b.innerHTML=`<canvas data-id="${id}" width="96" height="96"></canvas>${e} ${n}`;
+ b.onclick=()=>{if(!base)return toast("Erst ein Bild öffnen");p.fl=id==="none"?null:id;pick(id);render()};$("flg").append(b)});
+$("fa").oninput=e=>{p.fa=+e.target.value;$("fo").textContent=p.fa;schedule()};
+SL.forEach(([k,n,lo,hi,st])=>{p[k]=0;$("sl").insertAdjacentHTML("beforeend",`<label>${n}<output id="o-${k}">0</output></label><input type="range" id="r-${k}" min="${lo}" max="${hi}" step="${st}" value="0">`);
+ $("r-"+k).oninput=e=>{p[k]=+e.target.value;$("o-"+k).textContent=p[k];schedule()};$("r-"+k).ondblclick=e=>{e.target.value=0;e.target.oninput(e)}});
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tabs button,.pane").forEach(e=>e.classList.remove("on"));b.classList.add("on");$(b.dataset.t).classList.add("on")});
+
+// ---- Eigene Looks ----
+let PR=[];try{PR=JSON.parse(localStorage.getItem("pf-presets")||"[]")}catch{}
+function presets(){$("pg").innerHTML="";PR.forEach((r,i)=>{const b=document.createElement("button");b.className="fc";b.textContent="⭐ "+r.n;
+ b.onclick=()=>{if(!base)return toast("Erst ein Bild öffnen");Object.assign(p,r.p);SL.forEach(([k])=>{$("r-"+k).value=p[k];$("o-"+k).textContent=p[k]});$("fa").value=p.fa;$("fo").textContent=p.fa;pick(p.fl||"none");render()};
+ b.oncontextmenu=e=>{e.preventDefault();if(confirm("Look „"+r.n+"“ löschen?")){PR.splice(i,1);savePR()}};$("pg").append(b)})}
+function savePR(){try{localStorage.setItem("pf-presets",JSON.stringify(PR))}catch{}presets()}
+$("psv").onclick=()=>{const n=prompt("Name für diesen Look:");if(n){PR.push({n,p:{...p}});savePR();toast("Look gespeichert")}};presets();
+// ---- Werkzeuge ----
+const rot=a=>{const c=mk(base.height,base.width),x=c.getContext("2d");x.translate(c.width/2,c.height/2);x.rotate(a*Math.PI/2);x.drawImage(base,-base.width/2,-base.height/2);return c};
+const flip=h=>{const c=mk(base.width,base.height),x=c.getContext("2d");x.translate(h?c.width:0,h?0:c.height);x.scale(h?-1:1,h?1:-1);x.drawImage(base,0,0);return c};
+const inv=()=>{const c=mk(base.width,base.height),x=c.getContext("2d");x.filter="invert(1)";x.drawImage(base,0,0);return c};
+function resize(){const w=parseInt(prompt(`Neue Breite in Pixel (aktuell ${base.width}):`,base.width));if(!w||w<1)return;const c=mk(w,Math.max(1,Math.round(base.height*w/base.width))),x=c.getContext("2d");x.imageSmoothingQuality="high";x.drawImage(base,0,0,c.width,c.height);push(c)}
+[["↺","Links drehen",()=>push(rot(-1))],["↻","Rechts drehen",()=>push(rot(1))],["↔️","Spiegeln",()=>push(flip(true))],["↕️","Kippen",()=>push(flip(false))],
+ ["✂️","Zuschneiden",startCrop],["📐","Größe",resize],["🔄","Invertieren",()=>push(inv())]].forEach(([e,n,f])=>{const b=document.createElement("button");b.className="tl";b.innerHTML=`<b>${e}</b>${n}`;b.onclick=()=>base?f():toast("Erst ein Bild öffnen");$("tg").append(b)});
+const sb=document.createElement("button");sb.className="tl";sb.innerHTML="<b>🗂️</b>Stapel";sb.onclick=()=>$("bf").click();$("tg").append(sb);
+$("bf").onchange=async e=>{const fs=[...e.target.files];e.target.value="";if(!fs.length)return;
+ const w=parseInt(prompt("Maximale Breite in Pixel (leer = Original):",""))||0,k=(prompt("Format: jpg, png oder webp","jpg")||"").toLowerCase(),M={png:"image/png",jpg:"image/jpeg",webp:"image/webp"};if(!M[k])return;
+ let dir;if(window.showDirectoryPicker){try{dir=await showDirectoryPicker({mode:"readwrite"})}catch{return}}
+ for(let i=0;i<fs.length;i++){const f=fs[i];toast(`Stapel ${i+1}/${fs.length}`);try{
+  const bm=RAW.has(f.name.split(".").pop().toLowerCase())?await rawPreview(f):await createImageBitmap(f),sc=w&&w<bm.width?w/bm.width:1,c=mk(Math.round(bm.width*sc),Math.round(bm.height*sc));c.getContext("2d").drawImage(bm,0,0,c.width,c.height);
+  let o=process(c,p,1);if(k==="jpg"){const t=mk(o.width,o.height),x=t.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,t.width,t.height);x.drawImage(o,0,0);o=t}
+  const bl=await new Promise(r=>o.toBlob(r,M[k],.92)),nm=f.name.replace(/\.[^.]+$/,"")+"_bearbeitet."+k;
+  if(dir){const wr=await(await dir.getFileHandle(nm,{create:true})).createWritable();await wr.write(bl);await wr.close()}else{const a=document.createElement("a");a.href=URL.createObjectURL(bl);a.download=nm;a.click();await new Promise(r=>setTimeout(r,300))}
+ }catch{}}toast("Stapel fertig – aktuelle Filter und Regler wurden auf alle angewendet")};
+function startCrop(){crop={sel:null,start:null,ratio:0};const bar=$("cropbar");bar.style.display="flex";bar.innerHTML="";
+ [["Frei",0],["1:1",1],["4:3",4/3],["3:2",3/2],["16:9",16/9],["9:16",9/16]].forEach(([n,r])=>{const b=document.createElement("button");b.textContent=n;b.onclick=()=>{crop.ratio=r;crop.sel=null;drawSel()};bar.append(b)});
+ const ok=document.createElement("button");ok.className="p";ok.textContent="✓";ok.onclick=doCrop;const no=document.createElement("button");no.textContent="✕";no.onclick=endCrop;bar.append(ok,no);view.style.cursor="crosshair";toast("Rahmen im Bild aufziehen")}
+function endCrop(){crop=null;$("cropbar").style.display="none";view.style.cursor="";if(cache)drawSel()}
+function doCrop(){const s=crop&&crop.sel;if(!s)return toast("Erst einen Rahmen aufziehen");const [x0,y0,x1,y1]=s.map(v=>Math.round(v/pf)),w=Math.min(base.width,x1)-Math.max(0,x0),h=Math.min(base.height,y1)-Math.max(0,y0);
+ if(w<2||h<2)return;const c=mk(w,h);c.getContext("2d").drawImage(base,Math.max(0,x0),Math.max(0,y0),w,h,0,0,w,h);endCrop();push(c)}
+const pos=e=>{const r=view.getBoundingClientRect();return[(e.clientX-r.left)*view.width/r.width,(e.clientY-r.top)*view.height/r.height]};
+view.onpointerdown=e=>{if(crop){crop.start=pos(e);crop.sel=null;view.setPointerCapture(e.pointerId)}else if(z>1||cmp!=null){pan=[e.clientX-tx,e.clientY-ty];if(cmp!=null){cmp=Math.max(0,Math.min(1,pos(e)[0]/view.width));drawSel()}view.setPointerCapture(e.pointerId)}};
+view.onpointermove=e=>{if(!crop){if(pan){if(cmp!=null){cmp=Math.max(0,Math.min(1,pos(e)[0]/view.width));drawSel()}else{tx=e.clientX-pan[0];ty=e.clientY-pan[1];tr()}}return}if(!crop.start)return;const[sx,sy]=crop.start,q=pos(e),W=view.width,H=view.height;let x1=Math.max(0,Math.min(W,q[0])),y1=Math.max(0,Math.min(H,q[1])),w=Math.abs(x1-sx),h=Math.abs(y1-sy);
+ if(crop.ratio){if(w/Math.max(h,1)>crop.ratio)w=h*crop.ratio;else h=w/crop.ratio}const dx=x1<sx?-1:1,dy=y1<sy?-1:1;x1=sx+dx*w;y1=sy+dy*h;crop.sel=[Math.min(sx,x1),Math.min(sy,y1),Math.max(sx,x1),Math.max(sy,y1)];drawSel()};
+view.onpointerup=()=>{pan=null;if(crop)crop.start=null};
+const tr=()=>view.style.transform=`translate(${tx}px,${ty}px) scale(${z})`;
+$("stage").addEventListener("wheel",e=>{if(!base)return;e.preventDefault();z=Math.max(1,Math.min(8,z*(e.deltaY<0?1.15:1/1.15)));if(z===1)tx=ty=0;tr()},{passive:false});
+view.ondblclick=()=>{z=1;tx=ty=0;tr()};
+$("bc").onclick=()=>{if(!base)return;cmp=cmp==null?.5:null;drawSel();if(cmp!=null)toast("Balken im Bild ziehen")};
+
+// ---- Öffnen ----
+async function rawPreview(f){const b=new Uint8Array(await f.arrayBuffer()),idx=[];
+ for(let i=0;i<b.length-3&&idx.length<40;i++)if(b[i]===255&&b[i+1]===216&&b[i+2]===255)idx.push(i);let best=null;
+ for(const i of idx){try{const bm=await createImageBitmap(new Blob([b.subarray(i)],{type:"image/jpeg"}));if(!best||bm.width*bm.height>best.width*best.height)best=bm}catch{}}
+ if(!best)throw new Error("keine eingebettete Vorschau gefunden");return best}
+async function openFile(f){if(!f)return;const ext=f.name.split(".").pop().toLowerCase();toast("Lade …");
+ try{const bm=RAW.has(ext)?await rawPreview(f):await createImageBitmap(f);const c=mk(bm.width,bm.height);c.getContext("2d").drawImage(bm,0,0);
+  file=f;isRaw=RAW.has(ext);hist=[c];hp=0;endCrop();resetAll();setBase(c);toast(isRaw?"RAW geöffnet (eingebettete Vorschau)":`${c.width} × ${c.height} px geöffnet`)}
+ catch(e){toast("Konnte nicht geöffnet werden: "+e.message)}}
+$("open").onclick=$("open2").onclick=()=>$("file").click();$("file").onchange=e=>{openFile(e.target.files[0]);e.target.value=""};
+addEventListener("dragover",e=>e.preventDefault());addEventListener("drop",e=>{e.preventDefault();openFile(e.dataTransfer.files[0])});
+addEventListener("keydown",e=>{if(e.ctrlKey&&e.key==="s"){e.preventDefault();if(base)$("bs").click()}else if(e.ctrlKey&&e.key==="z")undo();else if(e.ctrlKey&&e.key==="y")redo();else if(e.key==="Enter"&&crop)doCrop();else if(e.key==="Escape")endCrop()});
+$("bu").onclick=undo;$("br").onclick=redo;$("reset").onclick=()=>base&&resetAll();$("apply").onclick=()=>{if(base){push(process(base,p,1));resetAll();toast("Angewendet")}};
+
+// ---- Speichern ----
+async function write(blob,name,ext,mime){
+ if(window.showSaveFilePicker){try{const h=await showSaveFilePicker({suggestedName:name,types:[{description:ext.toUpperCase(),accept:{[mime]:["."+ext]}}]});const w=await h.createWritable();await w.write(blob);await w.close();return toast("Gespeichert: "+h.name)}catch(e){if(e.name==="AbortError")return}}
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast("Heruntergeladen: "+name)}
+async function save(k){const M={png:"image/png",jpg:"image/jpeg",webp:"image/webp"};
+ if(k==="raw")return write(file,file.name,file.name.split(".").pop().toLowerCase(),"application/octet-stream");
+ let mime=M[k];if(k==="orig")mime=!isRaw&&Object.values(M).includes(file.type)?file.type:"image/png";
+ const ext=Object.keys(M).find(x=>M[x]===mime);let out=process(base,p,1);
+ if(mime==="image/jpeg"){const w=mk(out.width,out.height),x=w.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w.width,w.height);x.drawImage(out,0,0);out=w}
+ const blob=await new Promise(r=>out.toBlob(r,mime,$("q").value/100));write(blob,file.name.replace(/\.[^.]+$/,"")+"_bearbeitet."+ext,ext,mime)}
+$("bs").onclick=()=>{$("svraw").style.display=isRaw?"block":"none";dlg.showModal()};
+$("q").oninput=e=>$("qo").textContent=e.target.value;
+dlg.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{dlg.close();save(b.dataset.k)});
+try{navigator.serviceWorker&&navigator.serviceWorker.register("sw.js").catch(()=>{})}catch{}
+</script>
+</body>
+</html>
